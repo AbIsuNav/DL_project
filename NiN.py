@@ -28,6 +28,8 @@ val_sampler = SubsetRandomSampler(valid_idx)
 
 data = []
 targets = []
+r_loss = list()
+r_epoch = list()
 
 for i in range(len(train_set)):
     a = train_set.data[i]
@@ -147,9 +149,9 @@ for epoch in range(1, 101):
         optimizer.step()
         train_loss.append(loss.item())
     # .........Printing values every 3 epochs.........
-    if epoch % 3 == 0:
-        print("epoch = ", epoch)
-        print("loss = ", loss.item())
+    if epoch % 5 == 0:
+        r_epoch.append(epoch)
+        r_loss.append(loss.item())
         for param_group in optimizer.param_groups:
             print("lr  ",param_group['lr'])
     # ..........Validation .............
@@ -174,3 +176,10 @@ output = model(Variable(data.cuda()))
 
 _, preds_tensor = torch.max(output, 1)
 preds = np.squeeze(torch.Tensor.cpu(preds_tensor).numpy)
+
+# ...........save model...........
+torch.save(model.state_dict(), "./NiN_model.pt")
+# ............writing loss.....
+lossfile = open('loss.txt', 'w')
+for i in range(len(r_loss)):
+    lossfile.write('{} {:.4f}\n'.format(r_epoch[i],r_loss[i]))
