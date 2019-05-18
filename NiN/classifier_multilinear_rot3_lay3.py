@@ -25,10 +25,10 @@ train_idx, valid_idx = index_list[:split], index_list[split:]
 tr_sampler = SubsetRandomSampler(train_idx)
 val_sampler = SubsetRandomSampler(valid_idx)
 # BATCH_SIZE = 4
-train_loader = DataLoader(cifar, batch_size=128, sampler=tr_sampler, num_workers=2)
-validloader = DataLoader(cifar, batch_size=1, sampler=val_sampler, num_workers=2)
+train_loader = DataLoader(cifar, batch_size=128, sampler=tr_sampler, num_workers=4)
+validloader = DataLoader(cifar, batch_size=1, sampler=val_sampler, num_workers=4)
 learning_rate = 0.1
-epochs = 100
+epochs = 50
 num_classes = 10
 
 class FC_classifier(nn.Module):
@@ -45,19 +45,42 @@ class FC_classifier(nn.Module):
             nn.BatchNorm2d(96),
             nn.ReLU(inplace=True),
             nn.MaxPool2d(kernel_size=3, stride=2, padding=1),
-            nn.Dropout(inplace=True)
+            nn.Dropout(inplace=True),
+
+            nn.Conv2d(96, 192, kernel_size=5, stride=1, padding=2),
+            nn.BatchNorm2d(192),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(192, 192, kernel_size=1, stride=1, padding=0),
+            nn.BatchNorm2d(192),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(192, 192, kernel_size=1, stride=1, padding=0),
+            nn.BatchNorm2d(192),
+            nn.ReLU(inplace=True),
+            nn.AvgPool2d(kernel_size=3, stride=2, padding=1),
+            nn.Dropout(inplace=True),
+
+            nn.Conv2d(192, 192, kernel_size=3, stride=1, padding=1),
+            nn.BatchNorm2d(192),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(192, 192, kernel_size=1, stride=1, padding=0),
+            nn.BatchNorm2d(192),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(192, 4, kernel_size=1, stride=1, padding=0),
+            nn.BatchNorm2d(4),
+            nn.ReLU(inplace=True),
+            nn.AvgPool2d(kernel_size=8, stride=1, padding=0)
         )
-        self.fc1 = nn.Linear(96*16*16, 200)
+        self.fc1 = nn.Linear(4, 200)
         self.fc2 = nn.Linear(200, 200)
         self.fc3 = nn.Linear(200, 10)
 
     def forward(self, x):
         x = self.features(x)
-        x = x.view(-1,96*16*16)
+        x = x.view(-1,4)
         x = F.relu(self.fc1(x))
         x = F.relu(self.fc2(x))
         x = self.fc3(x)
-        return F.log_softmax(dim=x) #soft_max dimension
+        return F.log_softmax(x) #soft_max dimension
 
 net = FC_classifier()
 # print(net)
@@ -65,16 +88,13 @@ net = FC_classifier()
 
 # -----loading model --------
 
-# for CPU:
+# ---------------for CPU:
 #nin_trained = torch.load('NiN_model.pt', map_location='cpu')
-# for GPU only
+# --------- for GPU only
 nin_trained = torch.load('NiN_model_5blocks.pt')
 model_dict = net.state_dict()
-# 1. filter out unnecessary keys
 pretrained_dict = {k[9:]: v for k, v in nin_trained.items() if k in model_dict}
-# 2. overwrite entries in the existing state dict
 model_dict.update(pretrained_dict)
-# 3. load the new state dict
 net.features.load_state_dict(pretrained_dict)
 
 
@@ -93,13 +113,14 @@ for epoch in range(epochs):
     losst, lossv = 0, 0
     for batch_idx, (data, target) in enumerate(train_loader):
         data, target = Variable(data.cuda()), Variable(target.cuda())
+        #data, target = Variable(data), Variable(target)
         optimizer.zero_grad()
         net_out = net(data)
         losst = criterion(net_out, target)
         losst.backward()
         optimizer.step()
     scheduler.step()
-#    net.eval()
+  #  net.eval()
     for data, target in validloader:
         test_loss = 0
         correct = 0
@@ -112,8 +133,6 @@ for epoch in range(epochs):
 
         test_loss /= len(validloader.dataset)
     print("epoch = ",epoch , "loss = ",losst.item(), "validation loss = ", lossv.item())
-
-# -- ------ testing ------------------
 testset = torchvision.datasets.CIFAR10(root='./data', train=False,
                                        download=True, transform=transforms.ToTensor())
 testloader = torch.utils.data.DataLoader(testset, batch_size=128, shuffle=False, num_workers=2)
@@ -132,4 +151,3 @@ test_loss /= len(testloader.dataset)
 print('\nTest set: Average loss: {:.4f}, Accuracy: {}/{} ({:.2f}%)\n'.format(
     test_loss * 128., correct, len(testloader.dataset),
     100. * correct / len(testloader.dataset)))
-
