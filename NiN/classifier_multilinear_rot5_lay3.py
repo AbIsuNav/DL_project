@@ -26,7 +26,7 @@ tr_sampler = SubsetRandomSampler(train_idx)
 val_sampler = SubsetRandomSampler(valid_idx)
 # BATCH_SIZE = 4
 train_loader = DataLoader(cifar, batch_size=128, sampler=tr_sampler, num_workers=2)
-validloader = DataLoader(cifar, batch_size=50, sampler=val_sampler, num_classes=2)
+validloader = DataLoader(cifar, batch_size=50, sampler=val_sampler, num_workers=2)
 learning_rate = 0.1
 epochs = 50
 num_classes = 10
