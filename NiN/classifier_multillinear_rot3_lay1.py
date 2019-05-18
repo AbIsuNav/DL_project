@@ -57,7 +57,7 @@ class FC_classifier(nn.Module):
         x = F.relu(self.fc1(x))
         x = F.relu(self.fc2(x))
         x = self.fc3(x)
-        return F.log_softmax(x) #soft_max dimension
+        return F.log_softmax(dim=x) #soft_max dimension
 
 net = FC_classifier()
 # print(net)
@@ -90,33 +90,30 @@ net.train()
 scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[20,40,45,50], gamma=0.2)
 for epoch in range(epochs):
     train_loss, valid_loss = [], []
+    losst, lossv = 0, 0
     for batch_idx, (data, target) in enumerate(train_loader):
         data, target = Variable(data.cuda()), Variable(target.cuda())
-        # print("data", data.shape)
-        # resize data from (batch_size, 1, 28, 28) to (batch_size, 28*28)
-       # data = data.view(-1, 32*32*3)
         optimizer.zero_grad()
         net_out = net(data)
-        loss = criterion(net_out, target)
-        loss.backward()
+        losst = criterion(net_out, target)
+        losst.backward()
         optimizer.step()
-    print("epoch = ",epoch , "loss = ",loss.item())
     scheduler.step()
-"""
-    net.eval()
+#    net.eval()
     for data, target in validloader:
         test_loss = 0
         correct = 0
-        # data = 255 - data #/ 255
-       # data = data.view(-1, 32 * 32 * 3)
+        data, target = Variable(data.cuda()), Variable(target.cuda())
         output = net(data)
-        loss = criterion(output, target)
-        valid_loss.append(loss.item())
+        lossv = criterion(output, target)
+        valid_loss.append(lossv.item())
         _, preds_tensor = torch.max(output, 1)
-        preds = np.squeeze(preds_tensor.numpy())
+        preds = np.squeeze(torch.Tensor.cpu(preds_tensor).numpy)
 
-        test_loss /= len(validloader.dataset) """
+        test_loss /= len(validloader.dataset)
+    print("epoch = ",epoch , "loss = ",losst.item(), "validation loss = ", lossv.item())
 
+# -- ------ testing ------------------
 testset = torchvision.datasets.CIFAR10(root='./data', train=False,
                                        download=True, transform=transforms.ToTensor())
 testloader = torch.utils.data.DataLoader(testset, batch_size=128, shuffle=False, num_workers=2)
