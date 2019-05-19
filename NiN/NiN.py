@@ -9,10 +9,10 @@ from rotate_data import train_data
 
 
 NUMBER_OF_CLASSES = 4
-train_loader, val_loader = train_data
+train_loader, val_loader = train_data()
 r_loss = list()
 r_epoch = list()
-
+v_loss = list()
 # ......Parameters.....
 class NIN(nn.Module):
     def __init__(self, num_classes):
@@ -96,11 +96,10 @@ for epoch in range(1, 101):
         optimizer.step()
         train_loss.append(loss.item())
     # .........Printing values every 3 epochs.........
-    if epoch % 5 == 0:
+    if epoch % 3 == 0:
         r_epoch.append(epoch)
         r_loss.append(loss.item())
-        for param_group in optimizer.param_groups:
-            print("lr  ",param_group['lr'])
+
     # ..........Validation .............
     model.eval()
     for data, target in val_loader:
@@ -112,7 +111,8 @@ for epoch in range(1, 101):
         _, preds_tensor = torch.max(output, 1)
 
         preds = np.squeeze(torch.Tensor.cpu(preds_tensor).numpy)
-
+    if epoch%3== 0:
+        v_loss.append(loss.item())
     scheduler.step()
 
 
@@ -125,8 +125,8 @@ _, preds_tensor = torch.max(output, 1)
 preds = np.squeeze(torch.Tensor.cpu(preds_tensor).numpy)
 
 # ...........save model...........
-torch.save(model.state_dict(), "./NiN_model.pt")
+# torch.save(model.state_dict(), "./NiN_model.pt")
 # ............writing loss.....
 lossfile = open('loss.txt', 'w')
 for i in range(len(r_loss)):
-    lossfile.write('{} {:.4f}\n'.format(r_epoch[i],r_loss[i]))
+    lossfile.write('{} {:.4f} {:.4f}\n'.format(r_epoch[i],r_loss[i],v_loss[i]))

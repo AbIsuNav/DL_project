@@ -28,7 +28,7 @@ val_sampler = SubsetRandomSampler(valid_idx)
 train_loader = DataLoader(cifar, batch_size=128, sampler=tr_sampler, num_workers=2)
 validloader = DataLoader(cifar, batch_size=50, sampler=val_sampler, num_workers=2)
 learning_rate = 0.1
-epochs = 50
+epochs = 1
 num_classes = 10
 
 class FC_classifier(nn.Module):
@@ -108,7 +108,7 @@ criterion = nn.NLLLoss()
 
 net.cuda()
 
-net.train()
+#net.train()
 # run the main training loop
 scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[20,40,45,50], gamma=0.2)
 for epoch in range(epochs):

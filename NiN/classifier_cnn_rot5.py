@@ -8,7 +8,7 @@ import torch.nn as nn
 from torch import optim
 from torch.autograd import Variable
 
-
+EPOCHS = 101
 #nin_trained = torch.load('NiN_model.pt',map_location='cpu')
 # ......Parameters.....
 class NIN(nn.Module):
@@ -48,19 +48,19 @@ class NIN(nn.Module):
             nn.Conv2d(192, 192, kernel_size=1, stride=1, padding=0),
             nn.BatchNorm2d(192),
             nn.ReLU(inplace=True),
-            nn.Conv2d(192, self.num_classes, kernel_size=1, stride=1, padding=0),
-            #nn.BatchNorm2d(self.num_classes),
+            nn.Conv2d(192, 192, kernel_size=1, stride=1, padding=0),
+            nn.BatchNorm2d(192),
             nn.ReLU(inplace=True),
             nn.AvgPool2d(kernel_size=8, stride=1, padding=0)
         )
 
-        self.lin = nn.Linear(10, self.num_classes)
+        self.lin = nn.Linear(192, self.num_classes)
         self._initialize_weights()
 
     def forward(self, x):
         x = self.features(x)
         x = self.CNN3layer(x)
-        x = x.view(-1,self.num_classes)
+        x = x.view(-1,192)
         x = self.lin(x)
         x = x.view(x.size(0), self.num_classes)
         return x
@@ -73,22 +73,51 @@ class NIN(nn.Module):
                     m.bias.data.zero_()
 
 
-def nin_network(elements, save=False):
+def nin_network( Num_per_class, save=False):
     NUMBER_OF_CLASSES = 10
-
     # ---- loading data -----
-    train_loader = partition_data.partition_Cifar10(elements)
+    train_set = torchvision.datasets.CIFAR10(
+        root='./data/cifar'
+        , train=True
+        , download=True
+        , transform=transforms.Compose([
+            transforms.ToTensor()
+        ])
+    )
+
+    data = []
+    targ = []
+    for j in range(10):
+        val = 0
+        for i in range(len(train_set.targets)):
+            if train_set.targets[i] == j:
+                data.append(train_set.data[i])
+                targ.append(train_set.targets[i])
+                val += 1
+                if val == Num_per_class:
+                    i = len(train_set.targets)
+                    break
+    print("data size ",len(targ))
+    # print(targ)
+    train_set.data = data
+    train_set.targets = targ
+
+    index_list = list(range(len(train_set)))
+
+    tr_sampler = SubsetRandomSampler(index_list)
+
+    train_loader = torch.utils.data.DataLoader(
+        train_set, batch_size=128, sampler=tr_sampler, num_workers=4)
 
     testset = torchvision.datasets.CIFAR10(root='./data', train=False,
                                            download=True, transform=transforms.ToTensor())
-    #testloader = torch.utils.data.DataLoader(testset, batch_size=4, shuffle=False, num_workers=2)
-    testloader = torch.utils.data.DataLoader(testset, batch_size=4, shuffle=False)
+    testloader = torch.utils.data.DataLoader(testset, batch_size=100, shuffle=False, num_workers=4)
     # -----loading model --------
     model = NIN(NUMBER_OF_CLASSES)
     # for CPU:
     #nin_trained = torch.load('NiN_model.pt', map_location='cpu')
     # for GPU only
-    nin_trained = torch.load('NiN_model.pt')
+    nin_trained = torch.load('NiN_model_5blocks.pt')
     model_dict = model.state_dict()
     # 1. filter out unnecessary keys
     pretrained_dict = {k[9:]: v for k, v in nin_trained.items() if k in model_dict}
@@ -101,45 +130,31 @@ def nin_network(elements, save=False):
 
     model.cuda()
     optimizer = optim.SGD(model.parameters(), lr=0.1, weight_decay=5e-4, momentum=0.9, nesterov = True)
-    scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[20, 40, 45, 50], gamma=0.2)
-    train_model(model, scheduler, optimizer, loss_function, train_loader, testloader, save)
+
+    train_model(model, optimizer, loss_function, train_loader, testloader, save)
 
 
-def train_model(model, scheduler, optimizer, loss_function, train_loader, testloader, save):
+def train_model(model, optimizer, loss_function, train_loader, testloader, save):
     # ..........running on number of epochs............
     r_loss = list()
     r_epoch = list()
-    for epoch in range(1, 2):
+    model.train()
+    scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[20, 40, 45, 50], gamma=0.2)
+    for epoch in range(1, EPOCHS):
         train_loss, valid_loss = [], []
 
         # ......... Training the model.................
-        model.train()
-        cont = 0
-        loss = 0.0
+
         for data, target in train_loader:
             data, target = Variable(data.cuda()), Variable(target.cuda())
-            # print("data", data.shape)
-            # resize data from (batch_size, 1, 28, 28) to (batch_size, 28*28)
-            #data = data.view(-1, 32 * 32 * 3)
             optimizer.zero_grad()
             output = model(data)
             loss = loss_function(output, target)
             loss.backward()
             optimizer.step()
             train_loss.append(loss.item())
-            print("epoch = ", epoch, "loss = ", loss.item())
-        # .........Printing values every 3 epochs.........
-        if epoch % 5 == 0:
-            r_epoch.append(epoch)
-            r_loss.append(loss.item())
-            for param_group in optimizer.param_groups:
-                print("lr  ",param_group['lr'])
-
+            #print("epoch = ", epoch, "loss = ", loss.item())
         scheduler.step()
-
-    output = model(data)
-
-    _, preds_tensor = torch.max(output, 1)
 
     model.eval()
     test_loss = 0
@@ -160,7 +175,7 @@ def train_model(model, scheduler, optimizer, loss_function, train_loader, testlo
     # -------- save model ---------------------
     if save:
         save_model_params(model)
-    write_loss(r_loss, r_epoch)
+   # write_loss(r_loss, r_epoch)
 
 
 def save_model_params(model):
@@ -176,5 +191,6 @@ def write_loss( r_loss, r_epoch):
 
 
 if __name__ == "__main__":
-    data_elements = [20,100,400,1000,5000]
-    nin_network(20)
+    # [20,100,400,1000,5000]
+    print("1000 for 101 for rot5")
+    nin_network(1000)

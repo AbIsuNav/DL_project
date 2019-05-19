@@ -28,7 +28,7 @@ val_sampler = SubsetRandomSampler(valid_idx)
 train_loader = DataLoader(cifar, batch_size=128, sampler=tr_sampler, num_workers=2)
 validloader = DataLoader(cifar, batch_size=100, sampler=val_sampler, num_workers=2)
 learning_rate = 0.1
-epochs = 50
+epochs = 1
 num_classes = 10
 
 class FC_classifier(nn.Module):
@@ -135,7 +135,7 @@ for epoch in range(epochs):
         losst = criterion(net_out, target)
         losst.backward()
         optimizer.step()
-        print("passed")
+
     scheduler.step()
   #  net.eval()
     for data, target in validloader:

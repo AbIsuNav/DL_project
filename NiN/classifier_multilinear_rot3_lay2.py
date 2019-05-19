@@ -12,10 +12,7 @@ from torch.autograd import Variable
 from torch.utils.data import DataLoader
 from torchvision.datasets import CIFAR10
 
-# ---- import model ----------
 
-# NUMBER_OF_CLASSES = 10
-from torchvision.datasets import CIFAR10
 cifar = CIFAR10('data', train=True, download=True, transform=transforms.ToTensor())
 cifar_test = CIFAR10('data', train=False, download=True, transform=transforms.ToTensor())
 split = int(0.8 * len(cifar))
@@ -59,16 +56,18 @@ class FC_classifier(nn.Module):
             nn.AvgPool2d(kernel_size=3, stride=2, padding=1),
             nn.Dropout(inplace=True)
         )
-        self.fc1 = nn.Linear(192*8*8, 200)
-        self.fc2 = nn.Linear(200, 200)
-        self.fc3 = nn.Linear(200, 10)
+        self.classifier = nn.Sequential(
+            nn.Linear(192 * 8 * 8, 200),
+            nn.ReLU(inplace=True),
+            nn.Linear(200, 200),
+            nn.ReLU(inplace=True),
+            nn.Linear(200, 10)
+        )
 
     def forward(self, x):
         x = self.features(x)
         x = x.view(-1,192*8*8)
-        x = F.relu(self.fc1(x))
-        x = F.relu(self.fc2(x))
-        x = self.fc3(x)
+        x = self.classifier(x)
         return F.log_softmax(x) #soft_max dimension
 
 net = FC_classifier()
@@ -97,7 +96,7 @@ criterion = nn.NLLLoss()
 
 net.cuda()
 
-net.train()
+#net.train()
 # run the main training loop
 scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[20,40,45,50], gamma=0.2)
 for epoch in range(epochs):

@@ -57,7 +57,7 @@ class FC_classifier(nn.Module):
         x = F.relu(self.fc1(x))
         x = F.relu(self.fc2(x))
         x = self.fc3(x)
-        return F.log_softmax(dim=x) #soft_max dimension
+        return F.log_softmax(x) #soft_max dimension
 
 net = FC_classifier()
 # print(net)
