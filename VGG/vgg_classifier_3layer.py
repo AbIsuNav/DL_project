@@ -29,24 +29,7 @@ test_set = torchvision.datasets.CIFAR10(
         transforms.ToTensor()
     ])
 )
-# %%
-data = []
-targ = []
-for j in range(10):
-    val = 0
-    for i in range(len(train_set.targets)):
-        if train_set.targets[i] == j:
-            data.append(train_set.data[i])
-            targ.append(train_set.targets[i])
-            val += 1
-            if val == 5000:
-                i = len(train_set.targets)
-                break
-print(len(targ))
-#print(targ)
-train_set.data = data
-train_set.targets = targ
-# %%
+
 split = int(0.8 * len(train_set))
 
 index_list = list(range(len(train_set)))
@@ -101,6 +84,7 @@ class Network(nn.Module):
         y = nn.BatchNorm2d(64).cuda()
         t = y(t).cuda()
         t = nn.functional.relu(t).cuda()
+        t = self.dropout(t)
         # t = nn.functional.max_pool2d(t, kernel_size = 2, stride = 1)
         # print("First")
         # print(t)
@@ -116,6 +100,7 @@ class Network(nn.Module):
         y = nn.BatchNorm2d(128).cuda()
         t = y(t).cuda()
         t = nn.functional.relu(t).cuda()
+        t = self.dropout(t)
         t = self.conv4(t).cuda()
         y = nn.BatchNorm2d(128).cuda()
         t = y(t).cuda()
@@ -128,10 +113,12 @@ class Network(nn.Module):
         y = nn.BatchNorm2d(256).cuda()
         t = y(t).cuda()
         t = nn.functional.relu(t).cuda()
+        t = self.dropout(t)
         t = self.conv6(t).cuda()
         y = nn.BatchNorm2d(256).cuda()
         t = y(t).cuda()
         t = nn.functional.relu(t).cuda()
+        t = self.dropout(t)
         t = self.conv7(t).cuda()
         y = nn.BatchNorm2d(256).cuda()
         t = y(t).cuda()
@@ -157,7 +144,7 @@ optimizer = optim.SGD(network.parameters(), lr=0.01, momentum=0.9, weight_decay=
 scheduler = MultiStepLR(optimizer, milestones=[15, 30, 40], gamma=0.2)
 
 #network.load_state_dict(torch.load('./vggtrainedNew', map_location='cpu'), strict=False)
-network.load_state_dict(torch.load('./vggtrainedNew'), strict=False)
+network.load_state_dict(torch.load('./vggtrainedwithExtraDropOut85epocs'), strict=False)
 network.train()
 
 loss_training = []
